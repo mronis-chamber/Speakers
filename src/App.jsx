@@ -1,18 +1,47 @@
-import React, { useState, useMemo } from 'react';
-
-// Enhanced mock data with bio snippets
-const mockSpeakers = [
-  { id: 1, name: "Krysten Sinema", role: "Former U.S. Senator", bio: "An experienced voice on bipartisan policy, global relations, and tax reform. Sinema offers unique insights into the inner workings of Washington and international diplomacy.", fee: "25-50K", feeValue: 25, bureau: "KEPPLER", location: "Arizona, USA", topics: ["Policy", "Global Affairs", "Economy"] },
-  { id: 2, name: "Zanny Minton Beddoes", role: "Editor-in-Chief, The Economist", bio: "A renowned global economics expert, offering unparalleled perspectives on the financial markets, international relations, and the future of the global economy.", fee: "N/A", feeValue: 999, bureau: "KEPPLER", location: "London, UK", topics: ["Economy", "Global Affairs", "Women in Leadership"] },
-  { id: 3, name: "Guy Adami", role: "Financial Analyst & TV Personality", bio: "Original member of CNBC's Fast Money. Adami provides sharp, actionable insights into equities, value investing, and navigating volatile financial markets.", fee: "20-30K", feeValue: 20, bureau: "KEPPLER", location: "New York, USA", topics: ["Finance", "Economy"] },
-  { id: 4, name: "KT McFarland", role: "Former Deputy National Security Advisor", bio: "A leading expert on foreign policy and national security, McFarland breaks down complex geopolitical tensions and their impact on global business.", fee: "25-50K", feeValue: 25, bureau: "KEPPLER", location: "Washington D.C.", topics: ["Global Affairs", "Defense", "Policy"] },
-  { id: 5, name: "Vijay Vaitheeswaran", role: "Global Energy & Climate Innovation Editor", bio: "Award-winning author and editor focusing on the intersection of climate change, energy markets, and technological innovation.", fee: "N/A", feeValue: 999, bureau: "KEPPLER", location: "New York, USA", topics: ["Climate", "Technology", "Innovation"] },
-  { id: 6, name: "Isaac Stone Fish", role: "CEO, Strategy Risks", bio: "Expert on US-China relations and international business risk. He helps organizations navigate the complex landscape of Asian markets.", fee: "10-25K", feeValue: 10, bureau: "KEPPLER", location: "New York, USA", topics: ["Global Affairs", "Economy"] },
-  { id: 7, name: "Willis Sparks", role: "Director, Global Macro", bio: "Sparks delivers engaging keynotes on macroeconomic trends, international politics, and what global elections mean for investors.", fee: "20-30K", feeValue: 20, bureau: "GOTHAM", location: "New York, USA", topics: ["Economy", "Global Affairs"] },
-  { id: 8, name: "Ted Fishman", role: "Journalist & Bestselling Author", bio: "Author of 'China, Inc.', Fishman is a veteran observer of global economic shifts, demographic changes, and their long-term business implications.", fee: "10-25K", feeValue: 10, bureau: "GOTHAM", location: "Chicago, IL", topics: ["Economy", "Global Affairs"] },
-];
+import React, { useEffect, useState, useMemo } from 'react';
 
 const allTopics = ["Policy", "Global Affairs", "Economy", "Women in Leadership", "Finance", "Defense", "Climate", "Technology", "Innovation"];
+
+const topicSynonyms = {
+  Policy: ['policy', 'public policy', 'government', 'regulation', 'regulatory', 'legislation'],
+  'Global Affairs': ['global affairs', 'geopolitics', 'geopolitical', 'international', 'foreign policy', 'world affairs'],
+  Economy: ['economy', 'economic', 'macroeconomics', 'macro', 'markets', 'market'],
+  'Women in Leadership': ['women in leadership', 'women leaders', 'female leadership', 'leadership'],
+  Finance: ['finance', 'financial', 'investing', 'investment', 'equities', 'capital markets'],
+  Defense: ['defense', 'national security', 'security', 'military'],
+  Climate: ['climate', 'climate change', 'sustainability', 'energy transition'],
+  Technology: ['technology', 'tech', 'ai', 'artificial intelligence', 'digital'],
+  Innovation: ['innovation', 'innovative', 'disruption', 'emerging tech'],
+};
+
+const normalizeText = (value) =>
+  String(value || '')
+    .toLowerCase()
+    .replace(/[^a-z0-9\s]/g, ' ')
+    .replace(/\s+/g, ' ')
+    .trim();
+
+const speakerMatchesTopic = (selectedTopic, speakerTopics) => {
+  const selectedNorm = normalizeText(selectedTopic);
+  const selectedTerms = topicSynonyms[selectedTopic] || [selectedTopic];
+  const selectedNormTerms = selectedTerms.map(normalizeText).filter(Boolean);
+  const topicBlob = normalizeText((speakerTopics || []).join(' '));
+  const topicWords = new Set(topicBlob.split(' ').filter(Boolean));
+
+  return selectedNormTerms.some((term) => {
+    if (!term) return false;
+    if (topicBlob.includes(term) || term.includes(topicBlob)) return true;
+
+    const parts = term.split(' ').filter(Boolean);
+    return parts.some((part) => {
+      if (topicWords.has(part)) return true;
+      for (const word of topicWords) {
+        if (word.includes(part) || part.includes(word)) return true;
+      }
+      return false;
+    });
+  }) || topicBlob.includes(selectedNorm);
+};
 
 // Inline SVGs to guarantee they render
 const Icons = {
@@ -27,30 +56,372 @@ const Icons = {
   Sync: () => <svg xmlns="http://www.w3.org/2000/svg" className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15" /></svg>
 };
 
+function EditSpeakerModal({ speaker, onClose, onSave }) {
+  const [form, setForm] = useState({
+    name: speaker?.name || '',
+    role: speaker?.role || '',
+    bureau: speaker?.bureau || '',
+    location: speaker?.location || '',
+    fee: speaker?.fee || '',
+    bio: speaker?.bio || '',
+    topicsText: (speaker?.topics || []).join(', '),
+  });
+  const [isSaving, setIsSaving] = useState(false);
+  const [saveError, setSaveError] = useState(null);
+
+  const handleSave = async () => {
+    setSaveError(null);
+    try {
+      setIsSaving(true);
+      await onSave(form);
+      onClose();
+    } catch (err) {
+      setSaveError(err?.message || 'Failed to save speaker');
+    } finally {
+      setIsSaving(false);
+    }
+  };
+
+  return (
+    <div className="fixed inset-0 z-50 bg-black/50 flex items-center justify-center p-4">
+      <div className="w-full max-w-3xl bg-white rounded-xl border-2 border-gray-300 shadow-2xl p-6">
+        <div className="flex items-center justify-between mb-6 border-b-2 border-gray-200 pb-4">
+          <h3 className="text-2xl font-serif font-bold text-black">Edit Speaker Profile</h3>
+          <button
+            onClick={onClose}
+            className="text-gray-700 hover:text-black font-bold text-sm uppercase"
+          >
+            Close
+          </button>
+        </div>
+
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+          <input className="border-2 border-gray-300 rounded px-3 py-2 font-medium" placeholder="Name" value={form.name} onChange={(e) => setForm((p) => ({ ...p, name: e.target.value }))} />
+          <input className="border-2 border-gray-300 rounded px-3 py-2 font-medium" placeholder="Current Title" value={form.role} onChange={(e) => setForm((p) => ({ ...p, role: e.target.value }))} />
+          <input className="border-2 border-gray-300 rounded px-3 py-2 font-medium" placeholder="Speakers Bureau" value={form.bureau} onChange={(e) => setForm((p) => ({ ...p, bureau: e.target.value }))} />
+          <input className="border-2 border-gray-300 rounded px-3 py-2 font-medium" placeholder="Location" value={form.location} onChange={(e) => setForm((p) => ({ ...p, location: e.target.value }))} />
+          <input className="border-2 border-gray-300 rounded px-3 py-2 font-medium" placeholder="Fee Range" value={form.fee} onChange={(e) => setForm((p) => ({ ...p, fee: e.target.value }))} />
+          <input className="border-2 border-gray-300 rounded px-3 py-2 font-medium" placeholder="Topics (comma separated)" value={form.topicsText} onChange={(e) => setForm((p) => ({ ...p, topicsText: e.target.value }))} />
+        </div>
+
+        <div className="mt-4">
+          <label className="block text-sm font-bold uppercase tracking-wider text-black mb-2">Notes / Bio</label>
+          <textarea
+            className="w-full min-h-40 border-2 border-gray-300 rounded px-3 py-2 font-medium"
+            value={form.bio}
+            onChange={(e) => setForm((p) => ({ ...p, bio: e.target.value }))}
+          />
+        </div>
+
+        {saveError && (
+          <div className="mt-4 text-sm font-bold text-red-700 bg-red-50 border border-red-200 rounded px-3 py-2">
+            {saveError}
+          </div>
+        )}
+
+        <div className="flex justify-end gap-3 mt-6">
+          <button
+            onClick={onClose}
+            disabled={isSaving}
+            className="px-4 py-2 border-2 border-gray-400 rounded font-bold text-gray-700 bg-white hover:bg-gray-100"
+          >
+            Cancel
+          </button>
+          <button
+            onClick={handleSave}
+            disabled={isSaving}
+            className="px-5 py-2 border-2 border-blue-900 rounded font-bold text-white bg-blue-700 hover:bg-blue-900"
+          >
+            {isSaving ? 'Saving...' : 'Save Changes'}
+          </button>
+        </div>
+      </div>
+    </div>
+  );
+}
+
+function AddSpeakerModal({ tagOptions, onClose, onCreate }) {
+  const [form, setForm] = useState({
+    name: '',
+    role: '',
+    bureau: '',
+    location: '',
+    fee: '',
+    bio: '',
+    selectedTags: [],
+    customTagsText: '',
+  });
+  const [isSaving, setIsSaving] = useState(false);
+  const [saveError, setSaveError] = useState(null);
+  const [tagSearch, setTagSearch] = useState('');
+
+  const filteredTags = tagOptions.filter((tag) =>
+    tag.toLowerCase().includes(tagSearch.toLowerCase().trim()),
+  );
+
+  const toggleTag = (tag) => {
+    setForm((prev) => ({
+      ...prev,
+      selectedTags: prev.selectedTags.includes(tag)
+        ? prev.selectedTags.filter((t) => t !== tag)
+        : [...prev.selectedTags, tag],
+    }));
+  };
+
+  const handleCreate = async () => {
+    setSaveError(null);
+    try {
+      setIsSaving(true);
+      const customTags = form.customTagsText
+        .split(',')
+        .map((t) => t.trim())
+        .filter(Boolean);
+      const topics = [...new Set([...form.selectedTags, ...customTags])];
+      await onCreate({
+        name: form.name,
+        role: form.role,
+        bureau: form.bureau,
+        location: form.location,
+        fee: form.fee,
+        bio: form.bio,
+        topics,
+      });
+      onClose();
+    } catch (err) {
+      setSaveError(err?.message || 'Failed to create speaker');
+    } finally {
+      setIsSaving(false);
+    }
+  };
+
+  return (
+    <div className="fixed inset-0 z-50 bg-black/50 flex items-center justify-center p-4">
+      <div className="w-full max-w-3xl bg-white rounded-xl border-2 border-gray-300 shadow-2xl p-6 max-h-[90vh] overflow-y-auto">
+        <div className="flex items-center justify-between mb-6 border-b-2 border-gray-200 pb-4">
+          <h3 className="text-2xl font-serif font-bold text-black">Add Speaker</h3>
+          <button onClick={onClose} className="text-gray-700 hover:text-black font-bold text-sm uppercase">
+            Close
+          </button>
+        </div>
+
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+          <input className="border-2 border-gray-300 rounded px-3 py-2 font-medium" placeholder="Name *" value={form.name} onChange={(e) => setForm((p) => ({ ...p, name: e.target.value }))} />
+          <input className="border-2 border-gray-300 rounded px-3 py-2 font-medium" placeholder="Current Title" value={form.role} onChange={(e) => setForm((p) => ({ ...p, role: e.target.value }))} />
+          <input className="border-2 border-gray-300 rounded px-3 py-2 font-medium" placeholder="Speakers Bureau" value={form.bureau} onChange={(e) => setForm((p) => ({ ...p, bureau: e.target.value }))} />
+          <input className="border-2 border-gray-300 rounded px-3 py-2 font-medium" placeholder="Location" value={form.location} onChange={(e) => setForm((p) => ({ ...p, location: e.target.value }))} />
+          <input className="border-2 border-gray-300 rounded px-3 py-2 font-medium" placeholder="Fee Range (e.g. 10-25K)" value={form.fee} onChange={(e) => setForm((p) => ({ ...p, fee: e.target.value }))} />
+          <input className="border-2 border-gray-300 rounded px-3 py-2 font-medium" placeholder="Additional tags (comma separated)" value={form.customTagsText} onChange={(e) => setForm((p) => ({ ...p, customTagsText: e.target.value }))} />
+        </div>
+
+        <div className="mt-4">
+          <label className="block text-sm font-bold uppercase tracking-wider text-black mb-2">Tag options</label>
+          <div className="mb-3 flex flex-col md:flex-row md:items-center gap-2">
+            <input
+              className="border-2 border-gray-300 rounded px-3 py-2 font-medium md:flex-1"
+              placeholder="Search tags..."
+              value={tagSearch}
+              onChange={(e) => setTagSearch(e.target.value)}
+            />
+            <div className="flex items-center gap-2">
+              <button
+                type="button"
+                onClick={() =>
+                  setForm((prev) => ({
+                    ...prev,
+                    selectedTags: [...new Set([...prev.selectedTags, ...filteredTags])],
+                  }))
+                }
+                className="px-3 py-2 text-xs font-bold border-2 border-gray-300 rounded bg-white hover:bg-gray-100"
+              >
+                Select visible
+              </button>
+              <button
+                type="button"
+                onClick={() => setForm((prev) => ({ ...prev, selectedTags: [] }))}
+                className="px-3 py-2 text-xs font-bold border-2 border-gray-300 rounded bg-white hover:bg-gray-100"
+              >
+                Clear
+              </button>
+            </div>
+          </div>
+          <div className="mb-2 text-xs font-bold text-gray-600 uppercase tracking-wide">
+            Selected: {form.selectedTags.length}
+          </div>
+          <div className="max-h-44 overflow-y-auto border-2 border-gray-200 rounded p-2 flex flex-wrap gap-2">
+            {tagOptions.length === 0 ? (
+              <span className="text-sm text-gray-600">No tag options available yet.</span>
+            ) : filteredTags.length === 0 ? (
+              <span className="text-sm text-gray-600">No tags match your search.</span>
+            ) : (
+              filteredTags.map((tag) => (
+                <button
+                  key={tag}
+                  type="button"
+                  onClick={() => toggleTag(tag)}
+                  className={`px-3 py-1.5 rounded-full border-2 text-sm font-bold ${
+                    form.selectedTags.includes(tag)
+                      ? 'bg-blue-700 border-blue-900 text-white'
+                      : 'bg-white border-gray-300 text-gray-800'
+                  }`}
+                >
+                  {tag}
+                </button>
+              ))
+            )}
+          </div>
+        </div>
+
+        <div className="mt-4">
+          <label className="block text-sm font-bold uppercase tracking-wider text-black mb-2">Notes / Bio</label>
+          <textarea className="w-full min-h-36 border-2 border-gray-300 rounded px-3 py-2 font-medium" value={form.bio} onChange={(e) => setForm((p) => ({ ...p, bio: e.target.value }))} />
+        </div>
+
+        {saveError && (
+          <div className="mt-4 text-sm font-bold text-red-700 bg-red-50 border border-red-200 rounded px-3 py-2">
+            {saveError}
+          </div>
+        )}
+
+        <div className="flex justify-end gap-3 mt-6">
+          <button onClick={onClose} disabled={isSaving} className="px-4 py-2 border-2 border-gray-400 rounded font-bold text-gray-700 bg-white hover:bg-gray-100">
+            Cancel
+          </button>
+          <button onClick={handleCreate} disabled={isSaving || !form.name.trim()} className="px-5 py-2 border-2 border-blue-900 rounded font-bold text-white bg-blue-700 hover:bg-blue-900 disabled:opacity-50">
+            {isSaving ? 'Creating...' : 'Create Speaker'}
+          </button>
+        </div>
+      </div>
+    </div>
+  );
+}
+
 export default function App() {
   const [currentPage, setCurrentPage] = useState('home'); 
+  const [speakers, setSpeakers] = useState([]);
+  const [speakersLoading, setSpeakersLoading] = useState(true);
+  const [speakersError, setSpeakersError] = useState(null);
+  const [showAddModal, setShowAddModal] = useState(false);
+  const [editingSpeaker, setEditingSpeaker] = useState(null);
+  const [mondayConnection, setMondayConnection] = useState({
+    checking: true,
+    connected: false,
+    error: null,
+  });
+
+  useEffect(() => {
+    let cancelled = false;
+
+    const checkConnection = async () => {
+      try {
+        const res = await fetch('/.netlify/functions/monday-connection', { method: 'GET' });
+        const data = await res.json();
+        const connected = Boolean(data?.connected);
+
+        if (cancelled) return;
+
+        setMondayConnection({
+          checking: false,
+          connected,
+          error: data?.error ?? null,
+        });
+      } catch (err) {
+        if (cancelled) return;
+        setMondayConnection({
+          checking: false,
+          connected: false,
+          error: err?.message ?? 'Unknown error',
+        });
+      }
+    };
+
+    checkConnection();
+    return () => {
+      cancelled = true;
+    };
+  }, []);
+
+  useEffect(() => {
+    let cancelled = false;
+
+    const fetchSpeakers = async () => {
+      try {
+        setSpeakersLoading(true);
+        const res = await fetch('/.netlify/functions/speakers', { method: 'GET' });
+        const data = await res.json();
+
+        if (cancelled) return;
+        if (!res.ok || !data?.ok) {
+          throw new Error(data?.error || `Failed to load speakers (${res.status})`);
+        }
+
+        setSpeakers(Array.isArray(data.speakers) ? data.speakers : []);
+        setSpeakersError(null);
+      } catch (err) {
+        if (cancelled) return;
+        setSpeakersError(err?.message || 'Failed to load speakers');
+        setSpeakers([]);
+      } finally {
+        if (!cancelled) setSpeakersLoading(false);
+      }
+    };
+
+    fetchSpeakers();
+    return () => {
+      cancelled = true;
+    };
+  }, []);
 
   // Filters & Sorting State
+  const [searchInput, setSearchInput] = useState("");
   const [searchTerm, setSearchTerm] = useState("");
   const [selectedTopics, setSelectedTopics] = useState([]);
   const [selectedFees, setSelectedFees] = useState([]);
+  const [selectedBureaus, setSelectedBureaus] = useState([]);
   const [sortBy, setSortBy] = useState("relevance"); 
 
   const handleSearchSubmit = (e) => {
     e.preventDefault();
+    setSearchTerm(searchInput);
     setCurrentPage('directory');
   };
 
+  useEffect(() => {
+    const timer = setTimeout(() => {
+      setSearchTerm(searchInput);
+    }, 250);
+    return () => clearTimeout(timer);
+  }, [searchInput]);
+
+  const parseFeeValue = (feeText) => {
+    if (!feeText) return 999;
+    const match = String(feeText).match(/(\d+)(?:\s*-\s*\d+)?K/i);
+    if (!match) return 999;
+    return Number(match[1]) || 999;
+  };
+
+  const allBureaus = useMemo(() => {
+    return [...new Set(speakers.map((s) => s.bureau).filter(Boolean))].sort((a, b) => a.localeCompare(b));
+  }, [speakers]);
+  const allTagOptions = useMemo(() => {
+    const tags = speakers.flatMap((s) => s.topics || []).map((t) => String(t).trim()).filter(Boolean);
+    return [...new Set(tags)].sort((a, b) => a.localeCompare(b));
+  }, [speakers]);
+
   const filteredAndSortedSpeakers = useMemo(() => {
-    let result = mockSpeakers.filter(speaker => {
+    let result = speakers.filter(speaker => {
+      const topicText = (speaker.topics || []).join(' ').toLowerCase();
       const matchesSearch = speaker.name.toLowerCase().includes(searchTerm.toLowerCase()) || 
                             speaker.role.toLowerCase().includes(searchTerm.toLowerCase()) ||
-                            speaker.bio.toLowerCase().includes(searchTerm.toLowerCase());
+                            speaker.bio.toLowerCase().includes(searchTerm.toLowerCase()) ||
+                            topicText.includes(searchTerm.toLowerCase());
 
-      const matchesTopic = selectedTopics.length === 0 || selectedTopics.some(t => speaker.topics.includes(t));
+      const matchesTopic =
+        selectedTopics.length === 0 ||
+        selectedTopics.some((t) => speakerMatchesTopic(t, speaker.topics));
       const matchesFee = selectedFees.length === 0 || selectedFees.includes(speaker.fee);
+      const matchesBureau = selectedBureaus.length === 0 || selectedBureaus.includes(speaker.bureau);
 
-      return matchesSearch && matchesTopic && matchesFee;
+      return matchesSearch && matchesTopic && matchesFee && matchesBureau;
     });
 
     result.sort((a, b) => {
@@ -66,7 +437,83 @@ export default function App() {
     });
 
     return result;
-  }, [searchTerm, selectedTopics, selectedFees, sortBy]);
+  }, [speakers, searchTerm, selectedTopics, selectedFees, selectedBureaus, sortBy]);
+
+  const openEditModal = (speaker) => {
+    setEditingSpeaker(speaker);
+  };
+
+  const closeEditModal = () => {
+    setEditingSpeaker(null);
+  };
+
+  const handleSaveSpeaker = async (form) => {
+    if (!editingSpeaker) return;
+    const nextSpeaker = {
+      ...editingSpeaker,
+      name: form.name.trim(),
+      role: form.role.trim(),
+      bureau: form.bureau.trim(),
+      location: form.location.trim(),
+      fee: form.fee.trim() || 'N/A',
+      feeValue: parseFeeValue(form.fee.trim() || 'N/A'),
+      bio: form.bio.trim(),
+      topics: form.topicsText
+        .split(',')
+        .map((t) => t.trim())
+        .filter(Boolean),
+    };
+
+    const res = await fetch('/.netlify/functions/update-speaker', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        itemId: nextSpeaker.id,
+        name: nextSpeaker.name,
+        role: nextSpeaker.role,
+        bureau: nextSpeaker.bureau,
+        location: nextSpeaker.location,
+        fee: nextSpeaker.fee,
+        bio: nextSpeaker.bio,
+        topics: nextSpeaker.topics,
+      }),
+    });
+    const data = await res.json();
+    if (!res.ok || !data?.ok) {
+      throw new Error(data?.error || `Save failed (${res.status})`);
+    }
+
+    setSpeakers((prev) => prev.map((s) => (s.id === editingSpeaker.id ? nextSpeaker : s)));
+  };
+
+  const handleCreateSpeaker = async (form) => {
+    const feeText = (form.fee || '').trim() || 'N/A';
+    const nextSpeakerDraft = {
+      name: form.name.trim(),
+      role: (form.role || '').trim(),
+      bureau: (form.bureau || '').trim(),
+      location: (form.location || '').trim(),
+      fee: feeText,
+      feeValue: parseFeeValue(feeText),
+      bio: (form.bio || '').trim(),
+      topics: form.topics || [],
+    };
+
+    const res = await fetch('/.netlify/functions/create-speaker', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(nextSpeakerDraft),
+    });
+    const data = await res.json();
+    if (!res.ok || !data?.ok) {
+      throw new Error(data?.error || `Create failed (${res.status})`);
+    }
+
+    setSpeakers((prev) => [
+      { ...nextSpeakerDraft, id: String(data.itemId || `${Date.now()}`) },
+      ...prev,
+    ]);
+  };
 
   // --- HOME PAGE COMPONENT ---
   const HomePage = () => (
@@ -85,8 +532,8 @@ export default function App() {
                 type="text" 
                 placeholder="Search by name, topic, or keyword..." 
                 className="w-full py-3 px-4 text-black text-xl font-medium focus:outline-none placeholder-gray-500"
-                value={searchTerm}
-                onChange={(e) => setSearchTerm(e.target.value)}
+                value={searchInput}
+                onChange={(e) => setSearchInput(e.target.value)}
               />
             </div>
             <button type="submit" className="bg-blue-700 hover:bg-blue-900 text-white px-8 py-4 rounded-md font-bold text-xl transition-colors shadow-md border-2 border-blue-900">
@@ -134,12 +581,12 @@ export default function App() {
   const DirectoryPage = () => (
     <div className="max-w-7xl mx-auto px-4 sm:px-6 py-10 flex flex-col md:flex-row gap-8 animate-fade-in">
       <aside className="w-full md:w-80 flex-shrink-0">
-        <div className="sticky top-28 bg-white p-6 rounded-xl border-2 border-gray-300 shadow-lg">
+        <div className="sticky top-28 bg-white p-6 rounded-xl border-2 border-gray-300 shadow-lg max-h-[calc(100vh-8rem)] overflow-y-auto">
           <div className="flex items-center justify-between mb-6 border-b-2 border-gray-200 pb-4">
             <h2 className="text-2xl font-serif text-black font-bold">Refine Search</h2>
-            {(selectedTopics.length > 0 || selectedFees.length > 0 || searchTerm) && (
+            {(selectedTopics.length > 0 || selectedFees.length > 0 || selectedBureaus.length > 0 || searchInput) && (
               <button 
-                onClick={() => { setSearchTerm(""); setSelectedTopics([]); setSelectedFees([]); }}
+                onClick={() => { setSearchInput(""); setSearchTerm(""); setSelectedTopics([]); setSelectedFees([]); setSelectedBureaus([]); }}
                 className="text-sm font-bold text-red-700 hover:text-red-900 uppercase tracking-wider bg-red-50 px-3 py-1 rounded border border-red-200"
               >
                 Clear All
@@ -154,8 +601,8 @@ export default function App() {
                 type="text" 
                 placeholder="Search names, bios..." 
                 className="w-full pl-4 pr-10 py-3 bg-gray-50 border-2 border-gray-400 rounded-md text-base text-black font-medium focus:outline-none focus:border-blue-700 focus:bg-white placeholder-gray-600"
-                value={searchTerm}
-                onChange={(e) => setSearchTerm(e.target.value)}
+                value={searchInput}
+                onChange={(e) => setSearchInput(e.target.value)}
               />
               <div className="absolute right-3 top-3">
                 <Icons.Search className="h-5 w-5" />
@@ -167,7 +614,15 @@ export default function App() {
             <h3 className="text-sm font-bold text-black uppercase tracking-widest mb-4">Topics</h3>
             <div className="space-y-4">
               {allTopics.map(topic => (
-                <label key={topic} className="flex items-center gap-4 cursor-pointer group">
+                <label
+                  key={topic}
+                  className="flex items-center gap-4 cursor-pointer group"
+                  onClick={() =>
+                    setSelectedTopics((prev) =>
+                      prev.includes(topic) ? prev.filter((t) => t !== topic) : [...prev, topic],
+                    )
+                  }
+                >
                   <div className={`w-6 h-6 rounded border-2 flex items-center justify-center transition-colors ${selectedTopics.includes(topic) ? 'bg-blue-700 border-blue-900 text-white' : 'bg-white border-gray-400 group-hover:border-blue-600'}`}>
                     {selectedTopics.includes(topic) && <Icons.Check />}
                   </div>
@@ -181,7 +636,15 @@ export default function App() {
             <h3 className="text-sm font-bold text-black uppercase tracking-widest mb-4">Fee Range</h3>
             <div className="space-y-4">
               {["10-25K", "20-30K", "25-50K", "N/A"].map(fee => (
-                <label key={fee} className="flex items-center gap-4 cursor-pointer group">
+                <label
+                  key={fee}
+                  className="flex items-center gap-4 cursor-pointer group"
+                  onClick={() =>
+                    setSelectedFees((prev) =>
+                      prev.includes(fee) ? prev.filter((f) => f !== fee) : [...prev, fee],
+                    )
+                  }
+                >
                   <div className={`w-6 h-6 rounded border-2 flex items-center justify-center transition-colors ${selectedFees.includes(fee) ? 'bg-blue-700 border-blue-900 text-white' : 'bg-white border-gray-400 group-hover:border-blue-600'}`}>
                     {selectedFees.includes(fee) && <Icons.Check />}
                   </div>
@@ -190,6 +653,32 @@ export default function App() {
                   </span>
                 </label>
               ))}
+            </div>
+          </div>
+
+          <div className="mb-2 border-t-2 border-gray-200 pt-6">
+            <h3 className="text-sm font-bold text-black uppercase tracking-widest mb-4">Speakers Bureau</h3>
+            <div className="space-y-4">
+              {allBureaus.length === 0 ? (
+                <p className="text-sm text-gray-600 font-medium">No bureau values found yet.</p>
+              ) : (
+                allBureaus.map((bureau) => (
+                  <label
+                    key={bureau}
+                    className="flex items-center gap-4 cursor-pointer group"
+                    onClick={() =>
+                      setSelectedBureaus((prev) =>
+                        prev.includes(bureau) ? prev.filter((b) => b !== bureau) : [...prev, bureau],
+                      )
+                    }
+                  >
+                    <div className={`w-6 h-6 rounded border-2 flex items-center justify-center transition-colors ${selectedBureaus.includes(bureau) ? 'bg-blue-700 border-blue-900 text-white' : 'bg-white border-gray-400 group-hover:border-blue-600'}`}>
+                      {selectedBureaus.includes(bureau) && <Icons.Check />}
+                    </div>
+                    <span className={`text-base ${selectedBureaus.includes(bureau) ? 'text-black font-bold' : 'text-gray-800 font-medium'}`}>{bureau}</span>
+                  </label>
+                ))
+              )}
             </div>
           </div>
         </div>
@@ -218,7 +707,17 @@ export default function App() {
         </div>
 
         <div className="space-y-6">
-          {filteredAndSortedSpeakers.length === 0 ? (
+          {speakersLoading ? (
+            <div className="py-20 text-center bg-white rounded-xl border-2 border-gray-300 shadow-lg">
+              <h3 className="text-2xl font-serif text-black mb-3 font-bold">Loading speakers...</h3>
+              <p className="text-lg text-gray-700 font-medium">Reading records from monday.com board.</p>
+            </div>
+          ) : speakersError ? (
+            <div className="py-20 text-center bg-white rounded-xl border-2 border-red-300 shadow-lg">
+              <h3 className="text-2xl font-serif text-black mb-3 font-bold">Could not load speakers</h3>
+              <p className="text-lg text-red-700 font-medium">{speakersError}</p>
+            </div>
+          ) : filteredAndSortedSpeakers.length === 0 ? (
             <div className="py-20 text-center bg-white rounded-xl border-2 border-gray-300 shadow-lg">
               <div className="w-24 h-24 bg-gray-100 rounded-full flex items-center justify-center mx-auto mb-6 border-2 border-gray-300 text-gray-500">
                 <Icons.Search className="h-10 w-10" />
@@ -263,7 +762,10 @@ export default function App() {
                         </span>
                       ))}
                     </div>
-                    <button className="text-white font-bold text-base bg-blue-700 hover:bg-blue-900 px-6 py-3 rounded-md border-2 border-blue-900 flex items-center gap-2 group-hover:translate-x-1 transition-transform shadow-md">
+                    <button
+                      onClick={() => openEditModal(speaker)}
+                      className="text-white font-bold text-base bg-blue-700 hover:bg-blue-900 px-6 py-3 rounded-md border-2 border-blue-900 flex items-center gap-2 group-hover:translate-x-1 transition-transform shadow-md"
+                    >
                       View / Edit Profile <Icons.Edit />
                     </button>
                   </div>
@@ -306,18 +808,57 @@ export default function App() {
             >
               Directory
             </button>
-            <button className="hover:text-black transition-colors">Update / Add Speakers</button>
+            <button onClick={() => setShowAddModal(true)} className="hover:text-black transition-colors">Add Speaker</button>
           </nav>
 
-          <button className="bg-black hover:bg-gray-800 text-white px-8 py-3 rounded text-base font-bold uppercase tracking-widest transition-colors shadow-lg border-2 border-gray-900 flex items-center gap-2">
-            <Icons.Sync /> Monday.com Sync
+          <button
+            type="button"
+            disabled={!mondayConnection.connected || mondayConnection.checking}
+            title={mondayConnection.error ?? ''}
+            className={`bg-black hover:bg-gray-800 text-white px-4 py-2 rounded text-xs font-bold uppercase tracking-wide transition-colors shadow-lg border-2 border-gray-900 flex items-center gap-2 disabled:opacity-50 disabled:cursor-not-allowed`}
+          >
+            <span
+              className={`inline-flex h-2.5 w-2.5 rounded-full ${
+                mondayConnection.checking
+                  ? 'bg-yellow-500'
+                  : mondayConnection.connected
+                    ? 'bg-green-500'
+                    : 'bg-red-500'
+              }`}
+            />
+            <span className="scale-90">
+              <Icons.Sync />
+            </span>
+            <span>
+              {mondayConnection.checking
+                ? 'Checking Monday...'
+                : mondayConnection.connected
+                  ? 'Monday Connected - Sync'
+                  : 'Monday Not Connected'}
+            </span>
           </button>
         </div>
       </header>
 
       <main>
-        {currentPage === 'home' ? <HomePage /> : <DirectoryPage />}
+        {currentPage === 'home' ? HomePage() : DirectoryPage()}
       </main>
+
+      {editingSpeaker && (
+        <EditSpeakerModal
+          speaker={editingSpeaker}
+          onClose={closeEditModal}
+          onSave={handleSaveSpeaker}
+        />
+      )}
+
+      {showAddModal && (
+        <AddSpeakerModal
+          tagOptions={allTagOptions}
+          onClose={() => setShowAddModal(false)}
+          onCreate={handleCreateSpeaker}
+        />
+      )}
 
       <footer className="bg-black text-gray-300 py-16 text-center text-base mt-20 border-t-8 border-blue-700">
         <div className="max-w-7xl mx-auto px-6">
