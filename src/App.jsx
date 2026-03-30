@@ -56,7 +56,7 @@ const Icons = {
   Sync: () => <svg xmlns="http://www.w3.org/2000/svg" className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15" /></svg>
 };
 
-function EditSpeakerModal({ speaker, onClose, onSave }) {
+function EditSpeakerModal({ speaker, tagOptions, onClose, onSave }) {
   const [form, setForm] = useState({
     name: speaker?.name || '',
     role: speaker?.role || '',
@@ -64,16 +64,46 @@ function EditSpeakerModal({ speaker, onClose, onSave }) {
     location: speaker?.location || '',
     fee: speaker?.fee || '',
     bio: speaker?.bio || '',
-    topicsText: (speaker?.topics || []).join(', '),
+    selectedTags: speaker?.topics || [],
   });
   const [isSaving, setIsSaving] = useState(false);
   const [saveError, setSaveError] = useState(null);
+  const [tagSearch, setTagSearch] = useState('');
+  const [newTagInput, setNewTagInput] = useState('');
+
+  const filteredTags = tagOptions
+    .filter((tag) => tag.toLowerCase().includes(tagSearch.toLowerCase().trim()))
+    .filter((tag) => !form.selectedTags.includes(tag));
+
+  const toggleTag = (tag) => {
+    setForm((prev) => ({
+      ...prev,
+      selectedTags: prev.selectedTags.includes(tag)
+        ? prev.selectedTags.filter((t) => t !== tag)
+        : [...prev.selectedTags, tag],
+    }));
+  };
+
+  const addNewTag = () => {
+    const tag = newTagInput.trim();
+    if (!tag) return;
+    setForm((prev) => ({
+      ...prev,
+      selectedTags: prev.selectedTags.includes(tag)
+        ? prev.selectedTags
+        : [...prev.selectedTags, tag],
+    }));
+    setNewTagInput('');
+  };
 
   const handleSave = async () => {
     setSaveError(null);
     try {
       setIsSaving(true);
-      await onSave(form);
+      await onSave({
+        ...form,
+        topics: form.selectedTags,
+      });
       onClose();
     } catch (err) {
       setSaveError(err?.message || 'Failed to save speaker');
@@ -84,9 +114,9 @@ function EditSpeakerModal({ speaker, onClose, onSave }) {
 
   return (
     <div className="fixed inset-0 z-50 bg-black/50 flex items-center justify-center p-4">
-      <div className="w-full max-w-3xl bg-white rounded-xl border-2 border-gray-300 shadow-2xl p-6">
-        <div className="flex items-center justify-between mb-6 border-b-2 border-gray-200 pb-4">
-          <h3 className="text-2xl font-serif font-bold text-black">Edit Speaker Profile</h3>
+      <div className="w-full max-w-2xl bg-white rounded-xl border-2 border-gray-300 shadow-2xl p-5 max-h-[88vh] overflow-y-auto">
+        <div className="flex items-center justify-between mb-4 border-b-2 border-gray-200 pb-3">
+          <h3 className="text-xl font-serif font-bold text-black">Edit Speaker</h3>
           <button
             onClick={onClose}
             className="text-gray-700 hover:text-black font-bold text-sm uppercase"
@@ -95,19 +125,101 @@ function EditSpeakerModal({ speaker, onClose, onSave }) {
           </button>
         </div>
 
-        <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-          <input className="border-2 border-gray-300 rounded px-3 py-2 font-medium" placeholder="Name" value={form.name} onChange={(e) => setForm((p) => ({ ...p, name: e.target.value }))} />
-          <input className="border-2 border-gray-300 rounded px-3 py-2 font-medium" placeholder="Current Title" value={form.role} onChange={(e) => setForm((p) => ({ ...p, role: e.target.value }))} />
-          <input className="border-2 border-gray-300 rounded px-3 py-2 font-medium" placeholder="Speakers Bureau" value={form.bureau} onChange={(e) => setForm((p) => ({ ...p, bureau: e.target.value }))} />
-          <input className="border-2 border-gray-300 rounded px-3 py-2 font-medium" placeholder="Location" value={form.location} onChange={(e) => setForm((p) => ({ ...p, location: e.target.value }))} />
-          <input className="border-2 border-gray-300 rounded px-3 py-2 font-medium" placeholder="Fee Range" value={form.fee} onChange={(e) => setForm((p) => ({ ...p, fee: e.target.value }))} />
-          <input className="border-2 border-gray-300 rounded px-3 py-2 font-medium" placeholder="Topics (comma separated)" value={form.topicsText} onChange={(e) => setForm((p) => ({ ...p, topicsText: e.target.value }))} />
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+          <input className="border-2 border-gray-300 rounded px-3 py-2 text-sm font-medium" placeholder="Name" value={form.name} onChange={(e) => setForm((p) => ({ ...p, name: e.target.value }))} />
+          <input className="border-2 border-gray-300 rounded px-3 py-2 text-sm font-medium" placeholder="Current Title" value={form.role} onChange={(e) => setForm((p) => ({ ...p, role: e.target.value }))} />
+          <input className="border-2 border-gray-300 rounded px-3 py-2 text-sm font-medium" placeholder="Speakers Bureau" value={form.bureau} onChange={(e) => setForm((p) => ({ ...p, bureau: e.target.value }))} />
+          <input className="border-2 border-gray-300 rounded px-3 py-2 text-sm font-medium" placeholder="Location" value={form.location} onChange={(e) => setForm((p) => ({ ...p, location: e.target.value }))} />
+          <input className="border-2 border-gray-300 rounded px-3 py-2 text-sm font-medium" placeholder="Fee Range" value={form.fee} onChange={(e) => setForm((p) => ({ ...p, fee: e.target.value }))} />
+          <div />
         </div>
 
-        <div className="mt-4">
-          <label className="block text-sm font-bold uppercase tracking-wider text-black mb-2">Notes / Bio</label>
+        <div className="mt-3">
+          <label className="block text-xs font-bold uppercase tracking-wider text-black mb-2">Topics / Tags</label>
+          <div className="mb-2 flex flex-col md:flex-row md:items-center gap-2">
+            <input
+              className="border-2 border-gray-300 rounded px-3 py-2 text-sm font-medium md:flex-1"
+              placeholder="Search existing tags..."
+              value={tagSearch}
+              onChange={(e) => setTagSearch(e.target.value)}
+            />
+            <button
+              type="button"
+              onClick={() =>
+                setForm((prev) => ({
+                  ...prev,
+                  selectedTags: [...new Set([...prev.selectedTags, ...filteredTags])],
+                }))
+              }
+              className="px-3 py-2 text-xs font-bold border-2 border-gray-300 rounded bg-white hover:bg-gray-100 whitespace-nowrap"
+            >
+              Add visible
+            </button>
+          </div>
+
+          <div className="max-h-24 overflow-y-auto border-2 border-gray-200 rounded p-2 flex flex-wrap gap-2">
+            {filteredTags.length === 0 ? (
+              <span className="text-xs text-gray-600">No additional existing tags match.</span>
+            ) : (
+              filteredTags.map((tag) => (
+                <button
+                  key={tag}
+                  type="button"
+                  onClick={() => toggleTag(tag)}
+                  className="px-2.5 py-1 rounded-full border-2 text-xs font-bold bg-white border-gray-300 text-gray-800 hover:bg-gray-100"
+                >
+                  + {tag}
+                </button>
+              ))
+            )}
+          </div>
+
+          <div className="mt-2 flex flex-col md:flex-row gap-2">
+            <input
+              className="border-2 border-gray-300 rounded px-3 py-2 text-sm font-medium md:flex-1"
+              placeholder="Add new tag (does not need to already exist)"
+              value={newTagInput}
+              onChange={(e) => setNewTagInput(e.target.value)}
+              onKeyDown={(e) => {
+                if (e.key === 'Enter') {
+                  e.preventDefault();
+                  addNewTag();
+                }
+              }}
+            />
+            <button
+              type="button"
+              onClick={addNewTag}
+              className="px-4 py-2 text-xs font-bold border-2 border-gray-300 rounded bg-white hover:bg-gray-100 whitespace-nowrap"
+            >
+              Add Tag
+            </button>
+          </div>
+
+          <div className="mt-2">
+            <div className="mb-1 text-xs font-bold text-gray-600 uppercase tracking-wide">
+              Selected: {form.selectedTags.length}
+            </div>
+            <div className="max-h-24 overflow-y-auto border-2 border-gray-200 rounded p-2 flex flex-wrap gap-2">
+              {form.selectedTags.map((tag) => (
+                <button
+                  key={tag}
+                  type="button"
+                  onClick={() => toggleTag(tag)}
+                  className="px-2.5 py-1 rounded-full border-2 text-xs font-bold bg-blue-700 border-blue-900 text-white"
+                  title="Click to remove"
+                >
+                  {tag} ×
+                </button>
+              ))}
+            </div>
+          </div>
+        </div>
+
+        <div className="mt-3">
+          <label className="block text-xs font-bold uppercase tracking-wider text-black mb-2">Notes / Bio</label>
           <textarea
-            className="w-full min-h-40 border-2 border-gray-300 rounded px-3 py-2 font-medium"
+            className="w-full min-h-28 border-2 border-gray-300 rounded px-3 py-2 text-sm font-medium"
             value={form.bio}
             onChange={(e) => setForm((p) => ({ ...p, bio: e.target.value }))}
           />
@@ -149,15 +261,15 @@ function AddSpeakerModal({ tagOptions, onClose, onCreate }) {
     fee: '',
     bio: '',
     selectedTags: [],
-    customTagsText: '',
   });
   const [isSaving, setIsSaving] = useState(false);
   const [saveError, setSaveError] = useState(null);
   const [tagSearch, setTagSearch] = useState('');
+  const [newTagInput, setNewTagInput] = useState('');
 
-  const filteredTags = tagOptions.filter((tag) =>
-    tag.toLowerCase().includes(tagSearch.toLowerCase().trim()),
-  );
+  const filteredTags = tagOptions
+    .filter((tag) => tag.toLowerCase().includes(tagSearch.toLowerCase().trim()))
+    .filter((tag) => !form.selectedTags.includes(tag));
 
   const toggleTag = (tag) => {
     setForm((prev) => ({
@@ -172,11 +284,6 @@ function AddSpeakerModal({ tagOptions, onClose, onCreate }) {
     setSaveError(null);
     try {
       setIsSaving(true);
-      const customTags = form.customTagsText
-        .split(',')
-        .map((t) => t.trim())
-        .filter(Boolean);
-      const topics = [...new Set([...form.selectedTags, ...customTags])];
       await onCreate({
         name: form.name,
         role: form.role,
@@ -184,7 +291,7 @@ function AddSpeakerModal({ tagOptions, onClose, onCreate }) {
         location: form.location,
         fee: form.fee,
         bio: form.bio,
-        topics,
+        topics: form.selectedTags,
       });
       onClose();
     } catch (err) {
@@ -192,6 +299,18 @@ function AddSpeakerModal({ tagOptions, onClose, onCreate }) {
     } finally {
       setIsSaving(false);
     }
+  };
+
+  const addNewTag = () => {
+    const tag = newTagInput.trim();
+    if (!tag) return;
+    setForm((prev) => ({
+      ...prev,
+      selectedTags: prev.selectedTags.includes(tag)
+        ? prev.selectedTags
+        : [...prev.selectedTags, tag],
+    }));
+    setNewTagInput('');
   };
 
   return (
@@ -210,7 +329,7 @@ function AddSpeakerModal({ tagOptions, onClose, onCreate }) {
           <input className="border-2 border-gray-300 rounded px-3 py-2 font-medium" placeholder="Speakers Bureau" value={form.bureau} onChange={(e) => setForm((p) => ({ ...p, bureau: e.target.value }))} />
           <input className="border-2 border-gray-300 rounded px-3 py-2 font-medium" placeholder="Location" value={form.location} onChange={(e) => setForm((p) => ({ ...p, location: e.target.value }))} />
           <input className="border-2 border-gray-300 rounded px-3 py-2 font-medium" placeholder="Fee Range (e.g. 10-25K)" value={form.fee} onChange={(e) => setForm((p) => ({ ...p, fee: e.target.value }))} />
-          <input className="border-2 border-gray-300 rounded px-3 py-2 font-medium" placeholder="Additional tags (comma separated)" value={form.customTagsText} onChange={(e) => setForm((p) => ({ ...p, customTagsText: e.target.value }))} />
+          <div />
         </div>
 
         <div className="mt-4">
@@ -269,6 +388,44 @@ function AddSpeakerModal({ tagOptions, onClose, onCreate }) {
               ))
             )}
           </div>
+
+          <div className="mt-3 flex flex-col md:flex-row gap-2">
+            <input
+              className="border-2 border-gray-300 rounded px-3 py-2 font-medium md:flex-1"
+              placeholder="Add new tag (does not need to already exist)"
+              value={newTagInput}
+              onChange={(e) => setNewTagInput(e.target.value)}
+              onKeyDown={(e) => {
+                if (e.key === 'Enter') {
+                  e.preventDefault();
+                  addNewTag();
+                }
+              }}
+            />
+            <button
+              type="button"
+              onClick={addNewTag}
+              className="px-4 py-2 text-xs font-bold border-2 border-gray-300 rounded bg-white hover:bg-gray-100"
+            >
+              Add Tag
+            </button>
+          </div>
+
+          {form.selectedTags.length > 0 && (
+            <div className="mt-3 flex flex-wrap gap-2">
+              {form.selectedTags.map((tag) => (
+                <button
+                  key={`selected-${tag}`}
+                  type="button"
+                  onClick={() => toggleTag(tag)}
+                  className="px-3 py-1.5 rounded-full border-2 text-sm font-bold bg-blue-700 border-blue-900 text-white"
+                  title="Click to remove"
+                >
+                  {tag} ×
+                </button>
+              ))}
+            </div>
+          )}
         </div>
 
         <div className="mt-4">
@@ -300,6 +457,7 @@ export default function App() {
   const [speakers, setSpeakers] = useState([]);
   const [speakersLoading, setSpeakersLoading] = useState(true);
   const [speakersError, setSpeakersError] = useState(null);
+  const [isSyncing, setIsSyncing] = useState(false);
   const [showAddModal, setShowAddModal] = useState(false);
   const [editingSpeaker, setEditingSpeaker] = useState(null);
   const [mondayConnection, setMondayConnection] = useState({
@@ -339,6 +497,41 @@ export default function App() {
       cancelled = true;
     };
   }, []);
+
+  const refreshMondayData = async ({ silent = false } = {}) => {
+    if (!silent) {
+      setIsSyncing(true);
+      setSpeakersError(null);
+    }
+
+    try {
+      const [connectionRes, speakersRes] = await Promise.all([
+        fetch('/.netlify/functions/monday-connection', { method: 'GET' }),
+        fetch('/.netlify/functions/speakers', { method: 'GET' }),
+      ]);
+
+      const connectionData = await connectionRes.json();
+      const speakersData = await speakersRes.json();
+
+      setMondayConnection({
+        checking: false,
+        connected: Boolean(connectionData?.connected),
+        error: connectionData?.error ?? null,
+      });
+
+      if (!speakersRes.ok || !speakersData?.ok) {
+        throw new Error(speakersData?.error || `Failed to load speakers (${speakersRes.status})`);
+      }
+
+      setSpeakers(Array.isArray(speakersData.speakers) ? speakersData.speakers : []);
+      setSpeakersError(null);
+    } catch (err) {
+      setSpeakersError(err?.message || 'Failed to sync with monday.com');
+    } finally {
+      setSpeakersLoading(false);
+      setIsSyncing(false);
+    }
+  };
 
   useEffect(() => {
     let cancelled = false;
@@ -458,10 +651,9 @@ export default function App() {
       fee: form.fee.trim() || 'N/A',
       feeValue: parseFeeValue(form.fee.trim() || 'N/A'),
       bio: form.bio.trim(),
-      topics: form.topicsText
-        .split(',')
-        .map((t) => t.trim())
-        .filter(Boolean),
+      topics: Array.isArray(form.topics)
+        ? form.topics.map((t) => String(t).trim()).filter(Boolean)
+        : [],
     };
 
     const res = await fetch('/.netlify/functions/update-speaker', {
@@ -813,7 +1005,8 @@ export default function App() {
 
           <button
             type="button"
-            disabled={!mondayConnection.connected || mondayConnection.checking}
+            onClick={() => refreshMondayData()}
+            disabled={mondayConnection.checking || isSyncing}
             title={mondayConnection.error ?? ''}
             className={`bg-black hover:bg-gray-800 text-white px-4 py-2 rounded text-xs font-bold uppercase tracking-wide transition-colors shadow-lg border-2 border-gray-900 flex items-center gap-2 disabled:opacity-50 disabled:cursor-not-allowed`}
           >
@@ -826,11 +1019,13 @@ export default function App() {
                     : 'bg-red-500'
               }`}
             />
-            <span className="scale-90">
+            <span className={`scale-90 ${isSyncing ? 'animate-spin' : ''}`}>
               <Icons.Sync />
             </span>
             <span>
-              {mondayConnection.checking
+              {isSyncing
+                ? 'Syncing...'
+                : mondayConnection.checking
                 ? 'Checking Monday...'
                 : mondayConnection.connected
                   ? 'Monday Connected - Sync'
@@ -847,6 +1042,7 @@ export default function App() {
       {editingSpeaker && (
         <EditSpeakerModal
           speaker={editingSpeaker}
+          tagOptions={allTagOptions}
           onClose={closeEditModal}
           onSave={handleSaveSpeaker}
         />

@@ -1,0 +1,18 @@
+[build]
+  command = "npm run build"
+  publish = "dist"
+  functions = "netlify/functions"
+
+[dev]
+  command = "npm run dev"
+  targetPort = 5173
+  publish = "dist"
+  functions = "netlify/functions"
+  autoLaunch = false
+
+# Keep client-side routing working for React.
+[[redirects]]
+  from = "/*"
+  to = "/index.html"
+  status = 200
+
