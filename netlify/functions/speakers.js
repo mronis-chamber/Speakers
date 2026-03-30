@@ -7,6 +7,17 @@ const COLUMN_ALIASES = {
   notes: ['Notes', 'NOTES'],
 }
 
+/** Subitem board columns → normalized contact object */
+const SUBITEM_ALIASES = {
+  label: ['Subitem', 'SUBITEM'],
+  contactEmail: ['CONTACT EMAIL', 'Contact Email'],
+  contactCell: ['CONTACT CELL', 'Contact Cell'],
+  secondaryContact: ['SECONDARY CONTACT', 'Secondary Contact'],
+  secondaryEmail: ['SECONDARY EMAIL', 'Secondary Email'],
+  secondaryCell: ['SECONDARY CELL', 'Secondary Cell'],
+  chamberContact: ['CHAMBER CONTACT', 'Chamber Contact'],
+}
+
 function parseTopics(raw) {
   if (!raw) return []
   return raw
@@ -44,6 +55,40 @@ function findColumnId(titleToId, aliases) {
   return null
 }
 
+function mapSubitemColumnTextByTitle(columnValues) {
+  const byNormTitle = {}
+  for (const cv of columnValues || []) {
+    const title = cv.column?.title
+    if (title) {
+      byNormTitle[normalizeTitle(title)] = cv.text || ''
+    }
+  }
+  return byNormTitle
+}
+
+function pickSubField(byTitle, aliases) {
+  for (const a of aliases) {
+    const v = byTitle[normalizeTitle(a)]
+    if (v != null && String(v).trim() !== '') return String(v).trim()
+  }
+  return ''
+}
+
+function subitemToContact(subitem) {
+  const byTitle = mapSubitemColumnTextByTitle(subitem.column_values)
+  const labelCol = pickSubField(byTitle, SUBITEM_ALIASES.label)
+  return {
+    id: String(subitem.id),
+    label: labelCol || subitem.name || 'Contact',
+    contactEmail: pickSubField(byTitle, SUBITEM_ALIASES.contactEmail),
+    contactCell: pickSubField(byTitle, SUBITEM_ALIASES.contactCell),
+    secondaryContact: pickSubField(byTitle, SUBITEM_ALIASES.secondaryContact),
+    secondaryEmail: pickSubField(byTitle, SUBITEM_ALIASES.secondaryEmail),
+    secondaryCell: pickSubField(byTitle, SUBITEM_ALIASES.secondaryCell),
+    chamberContact: pickSubField(byTitle, SUBITEM_ALIASES.chamberContact),
+  }
+}
+
 function toSpeaker(item, valuesById, titleToId) {
   const roleId = findColumnId(titleToId, COLUMN_ALIASES.role)
   const bureauId = findColumnId(titleToId, COLUMN_ALIASES.bureau)
@@ -59,6 +104,8 @@ function toSpeaker(item, valuesById, titleToId) {
   const notes = (notesId && valuesById[notesId]?.text) || ''
   const topicsText = (topicsId && valuesById[topicsId]?.text) || ''
 
+  const subcontacts = (item.subitems || []).map(subitemToContact)
+
   return {
     // Keep monday item IDs as strings to avoid precision loss and unstable React keys.
     id: String(item.id),
@@ -70,6 +117,7 @@ function toSpeaker(item, valuesById, titleToId) {
     bureau,
     location,
     topics: parseTopics(topicsText),
+    subcontacts,
   }
 }
 
@@ -106,6 +154,22 @@ export async function handler() {
               text
               value
               type
+              column {
+                title
+              }
+            }
+            subitems {
+              id
+              name
+              column_values {
+                id
+                text
+                value
+                type
+                column {
+                  title
+                }
+              }
             }
           }
         }

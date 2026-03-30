@@ -53,7 +53,12 @@ const Icons = {
   Check: () => <svg xmlns="http://www.w3.org/2000/svg" className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={3} d="M5 13l4 4L19 7" /></svg>,
   Sort: () => <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M3 4h13M3 8h9m-9 4h6m4 0l4-4m0 0l4 4m-4-4v12" /></svg>,
   Edit: () => <svg xmlns="http://www.w3.org/2000/svg" className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15.232 5.232l3.536 3.536m-2.036-5.036a2.5 2.5 0 113.536 3.536L6.5 21.036H3v-3.572L16.732 3.732z" /></svg>,
-  Sync: () => <svg xmlns="http://www.w3.org/2000/svg" className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15" /></svg>
+  Sync: () => <svg xmlns="http://www.w3.org/2000/svg" className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15" /></svg>,
+  ChevronDown: ({ open }) => (
+    <svg xmlns="http://www.w3.org/2000/svg" className={`h-5 w-5 shrink-0 transition-transform ${open ? 'rotate-180' : ''}`} fill="none" viewBox="0 0 24 24" stroke="currentColor">
+      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" />
+    </svg>
+  ),
 };
 
 function EditSpeakerModal({ speaker, tagOptions, onClose, onSave }) {
@@ -245,6 +250,104 @@ function EditSpeakerModal({ speaker, tagOptions, onClose, onSave }) {
             className="px-5 py-2 border-2 border-blue-900 rounded font-bold text-white bg-blue-700 hover:bg-blue-900"
           >
             {isSaving ? 'Saving...' : 'Save Changes'}
+          </button>
+        </div>
+      </div>
+    </div>
+  );
+}
+
+function EditSubitemModal({ speakerName, subcontact, onClose, onSave }) {
+  const [form, setForm] = useState({
+    label: subcontact?.label || '',
+    contactEmail: subcontact?.contactEmail || '',
+    contactCell: subcontact?.contactCell || '',
+    secondaryContact: subcontact?.secondaryContact || '',
+    secondaryEmail: subcontact?.secondaryEmail || '',
+    secondaryCell: subcontact?.secondaryCell || '',
+    chamberContact: subcontact?.chamberContact || '',
+  });
+  const [isSaving, setIsSaving] = useState(false);
+  const [saveError, setSaveError] = useState(null);
+
+  const handleSave = async () => {
+    setSaveError(null);
+    try {
+      setIsSaving(true);
+      await onSave(form);
+      onClose();
+    } catch (err) {
+      setSaveError(err?.message || 'Failed to save contact');
+    } finally {
+      setIsSaving(false);
+    }
+  };
+
+  const fieldClass =
+    'border-2 border-gray-300 rounded px-3 py-2 text-sm font-medium w-full';
+
+  return (
+    <div className="fixed inset-0 z-[60] bg-black/50 flex items-center justify-center p-4">
+      <div className="w-full max-w-lg bg-white rounded-xl border-2 border-gray-300 shadow-2xl p-5 max-h-[90vh] overflow-y-auto">
+        <div className="flex items-center justify-between mb-4 border-b-2 border-gray-200 pb-3">
+          <div>
+            <h3 className="text-lg font-serif font-bold text-black">Edit contact</h3>
+            <p className="text-xs text-gray-600 font-medium mt-1">{speakerName}</p>
+          </div>
+          <button onClick={onClose} className="text-gray-700 hover:text-black font-bold text-sm uppercase">
+            Close
+          </button>
+        </div>
+
+        <div className="grid grid-cols-1 gap-3">
+          <div>
+            <label className="block text-xs font-bold uppercase tracking-wider text-gray-600 mb-1">Subitem / label</label>
+            <input className={fieldClass} value={form.label} onChange={(e) => setForm((p) => ({ ...p, label: e.target.value }))} />
+          </div>
+          <div>
+            <label className="block text-xs font-bold uppercase tracking-wider text-gray-600 mb-1">Contact email</label>
+            <input type="email" className={fieldClass} value={form.contactEmail} onChange={(e) => setForm((p) => ({ ...p, contactEmail: e.target.value }))} />
+          </div>
+          <div>
+            <label className="block text-xs font-bold uppercase tracking-wider text-gray-600 mb-1">Contact cell</label>
+            <input className={fieldClass} value={form.contactCell} onChange={(e) => setForm((p) => ({ ...p, contactCell: e.target.value }))} />
+          </div>
+          <div>
+            <label className="block text-xs font-bold uppercase tracking-wider text-gray-600 mb-1">Secondary contact</label>
+            <input className={fieldClass} value={form.secondaryContact} onChange={(e) => setForm((p) => ({ ...p, secondaryContact: e.target.value }))} />
+          </div>
+          <div>
+            <label className="block text-xs font-bold uppercase tracking-wider text-gray-600 mb-1">Secondary email</label>
+            <input type="email" className={fieldClass} value={form.secondaryEmail} onChange={(e) => setForm((p) => ({ ...p, secondaryEmail: e.target.value }))} />
+          </div>
+          <div>
+            <label className="block text-xs font-bold uppercase tracking-wider text-gray-600 mb-1">Secondary cell</label>
+            <input className={fieldClass} value={form.secondaryCell} onChange={(e) => setForm((p) => ({ ...p, secondaryCell: e.target.value }))} />
+          </div>
+          <div>
+            <label className="block text-xs font-bold uppercase tracking-wider text-gray-600 mb-1">Chamber contact</label>
+            <input className={fieldClass} value={form.chamberContact} onChange={(e) => setForm((p) => ({ ...p, chamberContact: e.target.value }))} />
+          </div>
+        </div>
+
+        {saveError && (
+          <div className="mt-4 text-sm font-bold text-red-700 bg-red-50 border border-red-200 rounded px-3 py-2">{saveError}</div>
+        )}
+
+        <div className="flex justify-end gap-3 mt-6">
+          <button
+            onClick={onClose}
+            disabled={isSaving}
+            className="px-4 py-2 border-2 border-gray-400 rounded font-bold text-gray-700 bg-white hover:bg-gray-100"
+          >
+            Cancel
+          </button>
+          <button
+            onClick={handleSave}
+            disabled={isSaving}
+            className="px-5 py-2 border-2 border-blue-900 rounded font-bold text-white bg-blue-700 hover:bg-blue-900"
+          >
+            {isSaving ? 'Saving...' : 'Save contact'}
           </button>
         </div>
       </div>
@@ -460,6 +563,8 @@ export default function App() {
   const [isSyncing, setIsSyncing] = useState(false);
   const [showAddModal, setShowAddModal] = useState(false);
   const [editingSpeaker, setEditingSpeaker] = useState(null);
+  const [openSubcontactBySpeaker, setOpenSubcontactBySpeaker] = useState({});
+  const [editingSubitem, setEditingSubitem] = useState(null);
   const [mondayConnection, setMondayConnection] = useState({
     checking: true,
     connected: false,
@@ -601,12 +706,27 @@ export default function App() {
   }, [speakers]);
 
   const filteredAndSortedSpeakers = useMemo(() => {
+    const term = searchTerm.toLowerCase();
     let result = speakers.filter(speaker => {
       const topicText = (speaker.topics || []).join(' ').toLowerCase();
-      const matchesSearch = speaker.name.toLowerCase().includes(searchTerm.toLowerCase()) || 
-                            speaker.role.toLowerCase().includes(searchTerm.toLowerCase()) ||
-                            speaker.bio.toLowerCase().includes(searchTerm.toLowerCase()) ||
-                            topicText.includes(searchTerm.toLowerCase());
+      const subSearchBlob = (speaker.subcontacts || [])
+        .flatMap((c) => [
+          c.label,
+          c.contactEmail,
+          c.contactCell,
+          c.secondaryContact,
+          c.secondaryEmail,
+          c.secondaryCell,
+          c.chamberContact,
+        ])
+        .join(' ')
+        .toLowerCase();
+      const matchesSearch =
+        speaker.name.toLowerCase().includes(term) ||
+        (speaker.role || '').toLowerCase().includes(term) ||
+        (speaker.bio || '').toLowerCase().includes(term) ||
+        topicText.includes(term) ||
+        subSearchBlob.includes(term);
 
       const matchesTopic =
         selectedTopics.length === 0 ||
@@ -638,6 +758,56 @@ export default function App() {
 
   const closeEditModal = () => {
     setEditingSpeaker(null);
+  };
+
+  const toggleSubcontactAccordion = (speakerId, subId) => {
+    setOpenSubcontactBySpeaker((prev) => ({
+      ...prev,
+      [speakerId]: prev[speakerId] === subId ? null : subId,
+    }));
+  };
+
+  const openEditSubitemModal = (speaker, sub) => {
+    setEditingSubitem({ speaker, sub });
+  };
+
+  const closeEditSubitemModal = () => {
+    setEditingSubitem(null);
+  };
+
+  const handleSaveSubitem = async (form) => {
+    if (!editingSubitem) return;
+    const { speaker, sub } = editingSubitem;
+    const next = {
+      label: (form.label || '').trim(),
+      contactEmail: (form.contactEmail || '').trim(),
+      contactCell: (form.contactCell || '').trim(),
+      secondaryContact: (form.secondaryContact || '').trim(),
+      secondaryEmail: (form.secondaryEmail || '').trim(),
+      secondaryCell: (form.secondaryCell || '').trim(),
+      chamberContact: (form.chamberContact || '').trim(),
+    };
+
+    const res = await fetch('/.netlify/functions/update-subitem', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ subitemId: sub.id, ...next }),
+    });
+    const data = await res.json();
+    if (!res.ok || !data?.ok) {
+      throw new Error(data?.error || `Save failed (${res.status})`);
+    }
+
+    setSpeakers((prev) =>
+      prev.map((s) => {
+        if (s.id !== speaker.id) return s;
+        const subs = s.subcontacts || [];
+        return {
+          ...s,
+          subcontacts: subs.map((sc) => (sc.id === sub.id ? { ...sc, ...next } : sc)),
+        };
+      }),
+    );
   };
 
   const handleSaveSpeaker = async (form) => {
@@ -702,7 +872,7 @@ export default function App() {
     }
 
     setSpeakers((prev) => [
-      { ...nextSpeakerDraft, id: String(data.itemId || `${Date.now()}`) },
+      { ...nextSpeakerDraft, id: String(data.itemId || `${Date.now()}`), subcontacts: [] },
       ...prev,
     ]);
   };
@@ -946,9 +1116,56 @@ export default function App() {
                     {speaker.bio}
                   </p>
 
+                  {(speaker.subcontacts || []).length > 0 && (
+                    <div className="mb-6 space-y-2">
+                      <h4 className="text-xs font-bold uppercase tracking-widest text-gray-600">Contacts</h4>
+                      {(speaker.subcontacts || []).map((sub) => {
+                        const open = openSubcontactBySpeaker[speaker.id] === sub.id;
+                        const row = (label, value) =>
+                          value ? (
+                            <div key={label} className="sm:col-span-1">
+                              <dt className="text-xs font-bold uppercase tracking-wide text-gray-500">{label}</dt>
+                              <dd className="text-sm font-medium text-black mt-0.5 break-all">{value}</dd>
+                            </div>
+                          ) : null;
+                        return (
+                          <div key={sub.id} className="border-2 border-gray-200 rounded-lg overflow-hidden bg-gray-50/80">
+                            <button
+                              type="button"
+                              onClick={() => toggleSubcontactAccordion(speaker.id, sub.id)}
+                              className="w-full flex items-center justify-between gap-3 px-4 py-3 text-left hover:bg-gray-100/80 transition-colors"
+                            >
+                              <span className="font-bold text-black text-sm sm:text-base">{sub.label || 'Contact'}</span>
+                              <Icons.ChevronDown open={open} />
+                            </button>
+                            {open && (
+                              <div className="px-4 pb-4 pt-0 border-t border-gray-200 bg-white">
+                                <dl className="grid grid-cols-1 sm:grid-cols-2 gap-x-4 gap-y-3 text-sm mt-3">
+                                  {row('Email', sub.contactEmail)}
+                                  {row('Cell', sub.contactCell)}
+                                  {row('Secondary contact', sub.secondaryContact)}
+                                  {row('Secondary email', sub.secondaryEmail)}
+                                  {row('Secondary cell', sub.secondaryCell)}
+                                  {row('Chamber contact', sub.chamberContact)}
+                                </dl>
+                                <button
+                                  type="button"
+                                  onClick={() => openEditSubitemModal(speaker, sub)}
+                                  className="mt-4 text-sm font-bold uppercase tracking-wide text-blue-800 border-2 border-blue-800 rounded px-4 py-2 hover:bg-blue-50 flex items-center gap-2 w-full sm:w-auto justify-center"
+                                >
+                                  <Icons.Edit /> Edit this contact
+                                </button>
+                              </div>
+                            )}
+                          </div>
+                        );
+                      })}
+                    </div>
+                  )}
+
                   <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-6 pt-6 border-t-2 border-gray-200">
                     <div className="flex flex-wrap gap-3">
-                      {speaker.topics.map((topic, idx) => (
+                      {(speaker.topics || []).map((topic, idx) => (
                         <span key={idx} className="text-sm font-bold text-blue-900 bg-blue-100 border-2 border-blue-300 px-4 py-2 rounded-full">
                           {topic}
                         </span>
@@ -1045,6 +1262,16 @@ export default function App() {
           tagOptions={allTagOptions}
           onClose={closeEditModal}
           onSave={handleSaveSpeaker}
+        />
+      )}
+
+      {editingSubitem && (
+        <EditSubitemModal
+          key={`${editingSubitem.speaker.id}-${editingSubitem.sub.id}`}
+          speakerName={editingSubitem.speaker.name}
+          subcontact={editingSubitem.sub}
+          onClose={closeEditSubitemModal}
+          onSave={handleSaveSubitem}
         />
       )}
 
